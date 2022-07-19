@@ -2,10 +2,12 @@ package packet
 
 import (
 	"bytes"
-	"compress/zlib"
+	// "compress/zlib"
 	"fmt"
 	"io"
 	"sync"
+
+	"github.com/klauspost/compress/zlib"
 )
 
 const MaxDataLength = 2097152
