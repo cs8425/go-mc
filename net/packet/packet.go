@@ -2,33 +2,10 @@ package packet
 
 import (
 	"bytes"
-	// "compress/zlib" // should use BestSpeed(level 1)
 	"fmt"
 	"io"
 	"sync"
-
-	"github.com/klauspost/compress/zlib"
 )
-
-type ZlibWriter zlib.Writer
-
-func (zw *ZlibWriter) Reset(w io.Writer) {
-	(*zlib.Writer)(zw).Reset(w)
-}
-func (zw *ZlibWriter) Write(p []byte) (n int, err error) {
-	return (*zlib.Writer)(zw).Write(p)
-}
-func (zw *ZlibWriter) Flush() error {
-	return (*zlib.Writer)(zw).Flush()
-}
-func (zw *ZlibWriter) Close() error {
-	return (*zlib.Writer)(zw).Close()
-}
-
-func NewZlibWriterLevel(level int) *ZlibWriter {
-	zw, _ := zlib.NewWriterLevel(nil, level)
-	return (*ZlibWriter)(zw)
-}
 
 const MaxDataLength = 2097152
 
@@ -130,8 +107,6 @@ func (p *Packet) packWithCompression(w io.Writer, threshold int, zw *ZlibWriter)
 		}
 	} else {
 		// zw := zlib.NewWriter(buff)
-		// zw := zlibWriterPool.Get(buff)
-		// defer zlibWriterPool.Return(zw)
 		zw.Reset(buff)
 		n1, err := VarInt(p.ID).WriteTo(zw)
 		if err != nil {
@@ -243,7 +218,7 @@ func (p *Packet) unpackWithCompression(r io.Reader, threshold int) error {
 		if DataLength > MaxDataLength {
 			return fmt.Errorf("compressed packet error: size of %d is larger than protocol maximum of %d", DataLength, MaxDataLength)
 		}
-		zr, err := zlib.NewReader(r)
+		zr, err := NewZlibReader(r)
 		if err != nil {
 			return err
 		}
