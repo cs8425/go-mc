@@ -2,13 +2,33 @@ package packet
 
 import (
 	"bytes"
-	// "compress/zlib"
+	// "compress/zlib" // should use BestSpeed(level 1)
 	"fmt"
 	"io"
 	"sync"
 
 	"github.com/klauspost/compress/zlib"
 )
+
+type ZlibWriter zlib.Writer
+
+func (zw *ZlibWriter) Reset(w io.Writer) {
+	(*zlib.Writer)(zw).Reset(w)
+}
+func (zw *ZlibWriter) Write(p []byte) (n int, err error) {
+	return (*zlib.Writer)(zw).Write(p)
+}
+func (zw *ZlibWriter) Flush() error {
+	return (*zlib.Writer)(zw).Flush()
+}
+func (zw *ZlibWriter) Close() error {
+	return (*zlib.Writer)(zw).Close()
+}
+
+func NewZlibWriterLevel(level int) *ZlibWriter {
+	zw, _ := zlib.NewWriterLevel(nil, level)
+	return (*ZlibWriter)(zw)
+}
 
 const MaxDataLength = 2097152
 
@@ -46,9 +66,9 @@ var bufPool = sync.Pool{
 }
 
 // Pack 打包一个数据包
-func (p *Packet) Pack(w io.Writer, threshold int) error {
+func (p *Packet) Pack(w io.Writer, threshold int, zw *ZlibWriter) error {
 	if threshold >= 0 {
-		return p.packWithCompression(w, threshold)
+		return p.packWithCompression(w, threshold, zw)
 	} else {
 		return p.packWithoutCompression(w)
 	}
@@ -80,7 +100,7 @@ func (p *Packet) packWithoutCompression(w io.Writer) error {
 	return nil
 }
 
-func (p *Packet) packWithCompression(w io.Writer, threshold int) error {
+func (p *Packet) packWithCompression(w io.Writer, threshold int, zw *ZlibWriter) error {
 	buff := bufPool.Get().(*bytes.Buffer)
 	defer bufPool.Put(buff)
 	buff.Reset()
@@ -109,7 +129,10 @@ func (p *Packet) packWithCompression(w io.Writer, threshold int) error {
 			return err
 		}
 	} else {
-		zw := zlib.NewWriter(buff)
+		// zw := zlib.NewWriter(buff)
+		// zw := zlibWriterPool.Get(buff)
+		// defer zlibWriterPool.Return(zw)
+		zw.Reset(buff)
 		n1, err := VarInt(p.ID).WriteTo(zw)
 		if err != nil {
 			return err
